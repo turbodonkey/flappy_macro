@@ -1,10 +1,10 @@
-use macroquad::prelude::*;
+use macroquad::{audio::play_sound_once, prelude::*};
 
 const SCREEN_WIDTH: i32 = 80;
 //const SCREEN_HEIGHT: i32 = 50;
 //const FRAME_DURATION: f32 = 60.0;
 const GRAVITY: f32 = 10.0;
-const FLAP_POWER: f32 = 8.0;
+const FLAP_POWER: f32 = 6.0;
 
 enum GameMode {
   Menu,
@@ -43,6 +43,14 @@ impl State {
       obstacle: Obstacle::new(SCREEN_WIDTH, 0),
     }
   }
+
+  fn reset(&mut self) {
+    self.mode = GameMode::Playing;
+    self.player.reset();
+    self.frame_time = 0.0;
+    self.score = 0;
+    //self.obstacle = Obstacle::new(SCREEN_WIDTH, 0);
+  }
 }
 
 impl Obstacle {
@@ -64,11 +72,17 @@ impl Player {
     }
   }
 
+  fn reset(&mut self) {
+    self.x = 65.0;
+    self.y = 100.0;
+    self.velocity = 0.0;
+  }
+
   fn flap(&mut self) {
     self.velocity -= FLAP_POWER;
   }
 
-  fn render(&mut self, delta_time: f32) {
+  fn tick(&mut self, delta_time: f32) {
     self.velocity += GRAVITY * delta_time;
 
     if self.velocity < -5.0 {
@@ -76,11 +90,15 @@ impl Player {
     }
 
     self.y += self.velocity;
-    if self.y < 0.0 {
-      self.y = 0.0;
-      self.velocity = 1.0;
-    }
 
+    /* test max height */
+    if self.y < 11.0 {
+      self.y = 11.0;
+      self.velocity /= 2.0;
+    }
+  }
+
+  fn render(&mut self) {
     draw_circle(self.x, self.y, 16.0, YELLOW);
   }
 }
@@ -117,15 +135,79 @@ async fn main() {
 
         if is_key_pressed(KeyCode::Space) {
           state.player.flap();
+        } else if is_key_pressed(KeyCode::P) {
+          state.mode = GameMode::Paused;
         }
 
-        state.player.render(delta_time);
+        state.player.tick(delta_time);
+
+        if state.player.y > (screen_height() - 11.0) {
+          state.mode = GameMode::End;
+        }
+
+        state.player.render();
       }
       GameMode::Paused => {
-        //TODO
+        clear_background(DARKPURPLE);
+
+        let text = "Paused";
+        let font_size = 20.0;
+        let text_dims = measure_text(text, None, font_size as u16, 1.0);
+        draw_text(
+          text,
+          (screen_width() / 2.0) - (text_dims.width / 2.0),
+          screen_height() / 3.0,
+          20.0,
+          WHITE,
+        );
+
+        let text = "Press SPACE to Continue or 'Q' to Quit";
+        let font_size = 20.0;
+        let text_dims = measure_text(text, None, font_size as u16, 1.0);
+        draw_text(
+          text,
+          (screen_width() / 2.0) - (text_dims.width / 2.0),
+          screen_height() / 2.0,
+          20.0,
+          WHITE,
+        );
+
+        if is_key_pressed(KeyCode::Space) {
+          state.mode = GameMode::Playing;
+        } else if is_key_pressed(KeyCode::Q) {
+          break;
+        }
       }
       GameMode::End => {
-        //TODO
+        clear_background(DARKPURPLE);
+
+        let text = "GAME OVER";
+        let font_size = 20.0;
+        let text_dims = measure_text(text, None, font_size as u16, 1.0);
+        draw_text(
+          text,
+          (screen_width() / 2.0) - (text_dims.width / 2.0),
+          screen_height() / 3.0,
+          20.0,
+          WHITE,
+        );
+
+        let text = "Press SPACE to Play or 'Q' to Quit";
+        let font_size = 20.0;
+        let text_dims = measure_text(text, None, font_size as u16, 1.0);
+        draw_text(
+          text,
+          (screen_width() / 2.0) - (text_dims.width / 2.0),
+          screen_height() / 2.0,
+          20.0,
+          WHITE,
+        );
+
+        if is_key_pressed(KeyCode::Space) {
+          state.reset();
+        } else if is_key_pressed(KeyCode::Q) {
+          break;
+        }
       }
     }
     next_frame().await
