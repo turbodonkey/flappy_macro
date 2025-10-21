@@ -1,6 +1,7 @@
-use macroquad::{audio::play_sound_once, prelude::*};
+use macroquad::prelude::*;
+use macroquad::rand;
 
-const SCREEN_WIDTH: i32 = 80;
+//const SCREEN_WIDTH: f32 = screen_width();
 //const SCREEN_HEIGHT: i32 = 50;
 //const FRAME_DURATION: f32 = 60.0;
 const GRAVITY: f32 = 10.0;
@@ -14,7 +15,7 @@ enum GameMode {
 }
 
 struct Obstacle {
-  x: i32,
+  x: f32,
   gap_y: i32,
   size: i32,
 }
@@ -37,10 +38,10 @@ impl State {
   fn new() -> Self {
     Self {
       mode: GameMode::Menu,
-      player: Player::new(65.0, 100.0),
+      player: Player::new(0.0, 100.0),
       frame_time: 0.0,
       score: 0,
-      obstacle: Obstacle::new(SCREEN_WIDTH, 0),
+      obstacle: Obstacle::new(screen_width(), 0),
     }
   }
 
@@ -49,17 +50,63 @@ impl State {
     self.player.reset();
     self.frame_time = 0.0;
     self.score = 0;
-    //self.obstacle = Obstacle::new(SCREEN_WIDTH, 0);
+    self.obstacle = Obstacle::new(screen_width(), 0);
+  }
+
+  fn tick(&mut self) {
+    if self.player.x > self.obstacle.x {
+      self.score += 1;
+      self.obstacle = Obstacle::new(self.player.x + screen_width(), self.score);
+    }
+
+    if self.player.y > screen_height() || self.obstacle.collision_detection(&self.player) {
+      self.mode = GameMode::End;
+    }
+  }
+
+  fn render(&mut self) {
+    let text = &format!("Score: {}", self.score);
+    let font_size = 20.0;
+    let text_dims = measure_text(text, None, font_size as u16, 1.0);
+    draw_text(
+      text,
+      screen_width() - (text_dims.width / 2.0) - 50.0,
+      30.0,
+      20.0,
+      WHITE,
+    );
   }
 }
 
 impl Obstacle {
-  fn new(x: i32, score: i32) -> Self {
+  fn new(x: f32, score: i32) -> Self {
     Obstacle {
       x,
-      gap_y: rand::gen_range(10, 40),
-      size: i32::max(2, 20 - score),
+      gap_y: rand::gen_range(10, screen_height() as i32 - 10),
+      size: i32::max(50, 300 - score),
     }
+  }
+
+  fn render(&mut self, curr_x: f32) {
+    let draw_x = self.x - curr_x;
+    let half_size = self.size as f32 / 2.0;
+
+    draw_rectangle(draw_x, 0.0, 16.0, self.gap_y as f32 - half_size, RED);
+    draw_rectangle(
+      draw_x,
+      self.gap_y as f32 + half_size,
+      16.0,
+      screen_height(),
+      WHITE,
+    );
+  }
+
+  fn collision_detection(&mut self, player: &Player) -> bool {
+    let half_size = self.size / 2;
+    let does_x_match = player.x == self.x;
+    let player_above_gap = player.y < (self.gap_y - half_size) as f32;
+    let player_below_gap = player.y > (self.gap_y + half_size) as f32;
+    does_x_match && (player_above_gap || player_below_gap)
   }
 }
 
@@ -90,6 +137,7 @@ impl Player {
     }
 
     self.y += self.velocity;
+    self.x += 1.0;
 
     /* test max height */
     if self.y < 11.0 {
@@ -99,14 +147,14 @@ impl Player {
   }
 
   fn render(&mut self) {
-    draw_circle(self.x, self.y, 16.0, YELLOW);
+    draw_circle(65.0, self.y, 12.0, YELLOW);
   }
 }
 
 #[macroquad::main("Flappy Macro")]
 async fn main() {
+  rand::srand(macroquad::miniquad::date::now() as _);
   let mut state = State::new();
-  rand::srand(miniquad::date::now() as u64);
 
   loop {
     let delta_time = get_frame_time();
@@ -140,12 +188,11 @@ async fn main() {
         }
 
         state.player.tick(delta_time);
-
-        if state.player.y > (screen_height() - 11.0) {
-          state.mode = GameMode::End;
-        }
+        state.tick();
 
         state.player.render();
+        state.obstacle.render(state.player.x);
+        state.render();
       }
       GameMode::Paused => {
         clear_background(DARKPURPLE);
