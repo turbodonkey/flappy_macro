@@ -174,14 +174,14 @@ async fn main() {
           WHITE,
         );
 
-        if is_key_pressed(KeyCode::Space) {
+        if is_key_pressed(KeyCode::Space) || is_mouse_button_pressed(MouseButton::Left) {
           state.mode = GameMode::Playing;
         }
       }
       GameMode::Playing => {
         clear_background(DARKGRAY);
 
-        if is_key_pressed(KeyCode::Space) {
+        if is_key_pressed(KeyCode::Space) || is_mouse_button_pressed(MouseButton::Left) {
           state.player.flap();
         } else if is_key_pressed(KeyCode::P) {
           state.mode = GameMode::Paused;
@@ -250,7 +250,7 @@ async fn main() {
           WHITE,
         );
 
-        if is_key_pressed(KeyCode::Space) {
+        if is_key_pressed(KeyCode::Space) || is_mouse_button_pressed(MouseButton::Left) {
           state.reset();
         } else if is_key_pressed(KeyCode::Q) {
           break;
